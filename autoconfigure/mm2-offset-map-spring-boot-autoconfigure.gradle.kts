@@ -13,8 +13,9 @@ dependencies {
     implementation(bootBom)
     kapt(bootBom)
 
-    implementation("org.springframework.boot:spring-boot-autoconfigure")
+    api("org.springframework.boot:spring-boot-autoconfigure")
     api("org.springframework.boot:spring-boot-starter")
+    api("org.springframework.boot:spring-boot-starter-web")
     kapt("org.springframework.boot:spring-boot-configuration-processor")
 
 

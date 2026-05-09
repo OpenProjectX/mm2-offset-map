@@ -1,0 +1,94 @@
+services:
+  source-kafka:
+    image: apache/kafka:3.9.0
+    hostname: source-kafka
+    container_name: mm2-offset-map-source-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@source-kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://source-kafka:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://source-kafka:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://source-kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+  target-kafka:
+    image: apache/kafka:3.9.0
+    hostname: target-kafka
+    container_name: mm2-offset-map-target-kafka
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@target-kafka:39093
+      KAFKA_LISTENERS: PLAINTEXT://target-kafka:29092,PLAINTEXT_HOST://0.0.0.0:9093,CONTROLLER://target-kafka:39093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://target-kafka:29092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: zlFiTJelTOuhnklFwLWixw
+
+  kafka-init-topics:
+    image: apache/kafka:3.9.0
+    depends_on:
+      - source-kafka
+      - target-kafka
+    command:
+      - /bin/bash
+      - -ec
+      - |
+        for i in {1..60}; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server source-kafka:29092 --list >/dev/null && break
+          sleep 2
+        done
+        for i in {1..60}; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server target-kafka:29092 --list >/dev/null && break
+          sleep 2
+        done
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server source-kafka:29092 --create --topic source.orders --partitions 2 --replication-factor 1 --if-not-exists
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server source-kafka:29092 --create --topic source.payments --partitions 2 --replication-factor 1 --if-not-exists
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server source-kafka:29092 --create --topic source.audit --partitions 1 --replication-factor 1 --if-not-exists
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server target-kafka:29092 --create --topic target.local-events --partitions 1 --replication-factor 1 --if-not-exists
+
+  mirror-maker:
+    image: apache/kafka:3.9.0
+    container_name: mm2-offset-map-mirror-maker
+    depends_on:
+      kafka-init-topics:
+        condition: service_completed_successfully
+    command:
+      - /bin/bash
+      - -ec
+      - /opt/kafka/bin/connect-mirror-maker.sh /etc/kafka/mm2/mm2.properties
+    volumes:
+      - ./compose/mm2/mm2.properties:/etc/kafka/mm2/mm2.properties:ro
+
+  kafbat-ui:
+    image: ghcr.io/openprojectx/kafka-ui:0.0.1-SNAPSHOT
+    container_name: mm2-offset-map-kafbat-ui
+    depends_on:
+      - source-kafka
+      - target-kafka
+    ports:
+      - "7080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: source
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: source-kafka:29092
+      KAFKA_CLUSTERS_1_NAME: target
+      KAFKA_CLUSTERS_1_BOOTSTRAPSERVERS: target-kafka:29092
+      DYNAMIC_CONFIG_ENABLED: "false"

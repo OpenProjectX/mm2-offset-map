@@ -1,0 +1,34 @@
+### Status
+GET {{baseUrl}}/api/v1/offsets/status
+Accept: application/json
+
+### Spring MVC mappings
+GET {{baseUrl}}/actuator/mappings
+Accept: application/json
+
+### Refresh offset-sync index from Kafka
+POST {{baseUrl}}/api/v1/offsets/refresh
+Accept: application/json
+
+### List loaded offset syncs
+GET {{baseUrl}}/api/v1/offsets/syncs
+Accept: application/json
+
+### List loaded offset syncs for one topic partition
+GET {{baseUrl}}/api/v1/offsets/syncs?topic={{topic}}&partition={{partition}}
+Accept: application/json
+
+### Translate source offset with query parameters
+GET {{baseUrl}}/api/v1/offsets/translate?topic={{topic}}&partition={{partition}}&offset={{offset}}
+Accept: application/json
+
+### Translate source offset with JSON body
+POST {{baseUrl}}/api/v1/offsets/translate
+Content-Type: application/json
+Accept: application/json
+
+{
+  "topic": "{{topic}}",
+  "partition": {{partition}},
+  "offset": {{offset}}
+}

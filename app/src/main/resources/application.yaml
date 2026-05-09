@@ -1,3 +1,15 @@
 spring:
   application:
     name: mm2-offset-map
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,mappings
+
+mm2:
+  offset-map:
+    bootstrap-servers: localhost:9093
+    offset-syncs-topic: mm2-offset-syncs.source.internal
+    refresh-interval: 30s

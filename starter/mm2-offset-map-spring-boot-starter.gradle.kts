@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm")
+    `java-library`
 }
 
 java {
@@ -7,7 +8,7 @@ java {
 }
 
 dependencies {
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}"))
+    api(platform("org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}"))
 
     api(project(":mm2-offset-map-spring-boot-autoconfigure"))
 }

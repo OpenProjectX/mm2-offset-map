@@ -5,6 +5,8 @@ plugins {
 
 dependencies {
 
+    api(libs.kafkaClients)
+    testImplementation(kotlin("test"))
 
 
 }
