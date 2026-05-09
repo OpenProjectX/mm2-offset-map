@@ -20,14 +20,18 @@ class KafkaOffsetSyncRepository(
     fun current(): OffsetSyncSnapshot = snapshot.get()
 
     fun refresh(): OffsetSyncSnapshot {
+        val refreshed = latest()
+        snapshot.set(refreshed)
+        return refreshed
+    }
+
+    fun latest(): OffsetSyncSnapshot {
         val syncs = readOffsetSyncs()
-        val refreshed = OffsetSyncSnapshot(
+        return OffsetSyncSnapshot(
             index = OffsetSyncIndex.from(syncs),
             refreshedAt = Instant.now(),
             topic = properties.offsetSyncsTopic,
         )
-        snapshot.set(refreshed)
-        return refreshed
     }
 
     private fun readOffsetSyncs(): List<OffsetSync> {

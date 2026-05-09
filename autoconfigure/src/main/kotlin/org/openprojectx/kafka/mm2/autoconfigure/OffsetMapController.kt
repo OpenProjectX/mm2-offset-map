@@ -29,10 +29,23 @@ class OffsetMapController(
     fun translate(@RequestBody request: OffsetTranslationRequest): OffsetTranslationResponse =
         translate(request.topic, request.partition, request.offset)
 
+    @GetMapping("/translate/latest")
+    fun translateLatest(
+        @RequestParam("topic") topic: String,
+        @RequestParam("partition") partition: Int,
+        @RequestParam("offset") offset: Long,
+    ): OffsetTranslationResponse =
+        service.translateLatest(topic, partition, offset)?.let { OffsetTranslationResponse.found(it) }
+            ?: throw OffsetTranslationNotFoundException(topic, partition, offset)
+
+    @PostMapping("/translate/latest")
+    fun translateLatest(@RequestBody request: OffsetTranslationRequest): OffsetTranslationResponse =
+        translateLatest(request.topic, request.partition, request.offset)
+
     @GetMapping("/syncs")
     fun syncs(
-        @RequestParam(required = false) topic: String?,
-        @RequestParam(required = false) partition: Int?,
+        @RequestParam(name = "topic", required = false) topic: String?,
+        @RequestParam(name = "partition", required = false) partition: Int?,
     ): OffsetSyncsResponse = OffsetSyncsResponse(service.syncs(topic, partition))
 
     @PostMapping("/refresh")

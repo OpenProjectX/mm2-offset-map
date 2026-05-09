@@ -19,7 +19,11 @@ GET {{baseUrl}}/api/v1/offsets/syncs?topic={{topic}}&partition={{partition}}
 Accept: application/json
 
 ### Translate source offset with query parameters
-GET {{baseUrl}}/api/v1/offsets/translate?topic={{topic}}&partition=1&offset=546
+GET {{baseUrl}}/api/v1/offsets/translate?topic={{topic}}&partition={{partition}}&offset={{offset}}
+Accept: application/json
+
+### Translate source offset from latest Kafka offset-syncs without cache
+GET {{baseUrl}}/api/v1/offsets/translate/latest?topic={{topic}}&partition={{partition}}&offset={{offset}}
 Accept: application/json
 
 ### Translate source offset with JSON body
@@ -31,4 +35,15 @@ Accept: application/json
   "topic": "{{topic}}",
   "partition": {{partition}},
   "offset": {{offset}}
+}
+
+### Translate source offset with JSON body from latest Kafka offset-syncs without cache
+POST {{baseUrl}}/api/v1/offsets/translate/latest
+Content-Type: application/json
+Accept: application/json
+
+{
+  "topic": "{{topic}}",
+  "partition": 1,
+  "offset": 15
 }

@@ -13,6 +13,9 @@ class OffsetMapService(
     fun translate(topic: String, partition: Int, offset: Long): OffsetTranslation? =
         repository.current().index.translate(topic, partition, offset)
 
+    fun translateLatest(topic: String, partition: Int, offset: Long): OffsetTranslation? =
+        repository.latest().index.translate(topic, partition, offset)
+
     fun syncs(topic: String?, partition: Int?): List<OffsetSync> =
         repository.current().index.syncs(topic, partition)
 
