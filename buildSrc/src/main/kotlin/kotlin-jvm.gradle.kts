@@ -12,6 +12,10 @@ plugins {
 kotlin {
     // Use a specific Java version to make it easier to work in different environments.
     jvmToolchain(17)
+
+    compilerOptions {
+        javaParameters.set(true)
+    }
 }
 
 dependencies {

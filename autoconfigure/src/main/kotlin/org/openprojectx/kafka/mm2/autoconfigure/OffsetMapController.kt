@@ -18,9 +18,9 @@ class OffsetMapController(
 ) {
     @GetMapping("/translate")
     fun translate(
-        @RequestParam topic: String,
-        @RequestParam partition: Int,
-        @RequestParam offset: Long,
+        @RequestParam("topic") topic: String,
+        @RequestParam("partition") partition: Int,
+        @RequestParam("offset") offset: Long,
     ): OffsetTranslationResponse =
         service.translate(topic, partition, offset)?.let { OffsetTranslationResponse.found(it) }
             ?: throw OffsetTranslationNotFoundException(topic, partition, offset)

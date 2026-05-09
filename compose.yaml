@@ -79,7 +79,7 @@ services:
       - ./compose/mm2/mm2.properties:/etc/kafka/mm2/mm2.properties:ro
 
   kafbat-ui:
-    image: ghcr.io/openprojectx/kafka-ui:0.0.1-SNAPSHOT
+    image: ghcr.io/openprojectx/kafka-ui:e36903c3
     container_name: mm2-offset-map-kafbat-ui
     depends_on:
       - source-kafka
