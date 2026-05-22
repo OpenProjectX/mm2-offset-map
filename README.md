@@ -133,9 +133,62 @@ Other endpoints:
 - `POST /api/v1/offsets/translate`: JSON body version of translate.
 - `GET /api/v1/offsets/translate/latest`: no-cache translate. Reads the offset-sync topic from Kafka immediately, builds a temporary index, calculates the translation, and does not update the cached snapshot.
 - `POST /api/v1/offsets/translate/latest`: JSON body version of no-cache translate.
+- `POST /api/v1/offsets/translate/batch`: cached batch translation. Request body contains one `topicName` and an `offsetList` of `partition` plus `startOffset` values.
+- `POST /api/v1/offsets/translate/batch/latest`: no-cache batch translation. Reads the offset-sync topic from Kafka immediately once, builds a temporary index, and translates all requested offsets from that index.
 - `GET /api/v1/offsets/syncs`: list loaded sync records, optionally filtered by `topic` and `partition`.
 - `POST /api/v1/offsets/refresh`: refresh the in-memory index from Kafka immediately.
 - `GET /api/v1/offsets/status`: return current offset-sync topic, last refresh time, and loaded sync count.
+
+Batch request:
+
+```json
+{
+  "topicName": "source.orders",
+  "offsetList": [
+    {
+      "partition": 0,
+      "startOffset": 10
+    },
+    {
+      "partition": 1,
+      "startOffset": 15
+    }
+  ]
+}
+```
+
+Batch response groups offsets by partition and includes per-offset success or failure:
+
+```json
+{
+  "topicName": "source.orders",
+  "sourceCluster": "source",
+  "targetCluster": "target",
+  "partitionResults": [
+    {
+      "partition": 0,
+      "status": "SUCCESS",
+      "offsetTranslations": [
+        {
+          "sourceOffset": 10,
+          "targetOffset": 10,
+          "translationMethod": "OFFSET_SYNC",
+          "errorMessages": null,
+          "success": true
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "totalRequested": 1,
+    "successCount": 1,
+    "failureCount": 0,
+    "processTimeMs": 12,
+    "partitionProcessed": 1
+  },
+  "timestamp": "2026-05-22T00:00:00Z"
+}
+```
 
 ## Local Development
 

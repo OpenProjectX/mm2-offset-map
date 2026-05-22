@@ -42,6 +42,14 @@ class OffsetMapController(
     fun translateLatest(@RequestBody request: OffsetTranslationRequest): OffsetTranslationResponse =
         translateLatest(request.topic, request.partition, request.offset)
 
+    @PostMapping("/translate/batch")
+    fun translateBatch(@RequestBody request: BatchOffsetTranslationRequest): BatchOffsetTranslationResponse =
+        service.translateBatch(request)
+
+    @PostMapping("/translate/batch/latest")
+    fun translateBatchLatest(@RequestBody request: BatchOffsetTranslationRequest): BatchOffsetTranslationResponse =
+        service.translateBatchLatest(request)
+
     @GetMapping("/syncs")
     fun syncs(
         @RequestParam(name = "topic", required = false) topic: String?,
@@ -59,6 +67,16 @@ data class OffsetTranslationRequest(
     val topic: String,
     val partition: Int,
     val offset: Long,
+)
+
+data class BatchOffsetTranslationRequest(
+    val topicName: String,
+    val offsetList: List<BatchOffsetRequest>,
+)
+
+data class BatchOffsetRequest(
+    val partition: Int,
+    val startOffset: Long,
 )
 
 data class OffsetTranslationResponse(
@@ -84,6 +102,37 @@ data class OffsetTranslationResponse(
 
 data class OffsetSyncsResponse(
     val syncs: List<OffsetSync>,
+)
+
+data class BatchOffsetTranslationResponse(
+    val topicName: String,
+    val sourceCluster: String,
+    val targetCluster: String,
+    val partitionResults: List<BatchPartitionTranslationResult>,
+    val summary: BatchOffsetTranslationSummary,
+    val timestamp: java.time.Instant = java.time.Instant.now(),
+)
+
+data class BatchPartitionTranslationResult(
+    val partition: Int,
+    val status: String,
+    val offsetTranslations: List<BatchOffsetTranslationResult>,
+)
+
+data class BatchOffsetTranslationResult(
+    val sourceOffset: Long,
+    val targetOffset: Long?,
+    val translationMethod: String,
+    val errorMessages: List<String>?,
+    val success: Boolean,
+)
+
+data class BatchOffsetTranslationSummary(
+    val totalRequested: Int,
+    val successCount: Int,
+    val failureCount: Int,
+    val processTimeMs: Long,
+    val partitionProcessed: Int,
 )
 
 data class OffsetMapStatusResponse(

@@ -10,6 +10,8 @@ management:
 
 mm2:
   offset-map:
+    source-cluster: source
+    target-cluster: target
     bootstrap-servers: localhost:9093
     offset-syncs-topic: mm2-offset-syncs.source.internal
     refresh-interval: 30s

@@ -27,7 +27,7 @@ GET {{baseUrl}}/api/v1/offsets/translate/latest?topic={{topic}}&partition={{part
 Accept: application/json
 
 ### Translate source offset with JSON body
-POST {{baseUrl}}/api/v1/offsets/translate
+POST {{baseUrl}}/api/v1/offsets/translate/latest
 Content-Type: application/json
 Accept: application/json
 
@@ -46,4 +46,50 @@ Accept: application/json
   "topic": "{{topic}}",
   "partition": 1,
   "offset": 15
+}
+
+### Translate source offsets by batch from cached offset-sync index
+POST {{baseUrl}}/api/v1/offsets/translate/batch
+Content-Type: application/json
+Accept: application/json
+
+{
+  "topicName": "{{topic}}",
+  "offsetList": [
+    {
+      "partition": 0,
+      "startOffset": 10
+    },
+    {
+      "partition": 0,
+      "startOffset": 100
+    },
+    {
+      "partition": 1,
+      "startOffset": 15
+    }
+  ]
+}
+
+### Translate source offsets by batch from latest Kafka offset-syncs without cache
+POST {{baseUrl}}/api/v1/offsets/translate/batch/latest
+Content-Type: application/json
+Accept: application/json
+
+{
+  "topicName": "{{topic}}",
+  "offsetList": [
+    {
+      "partition": 0,
+      "startOffset": 10
+    },
+    {
+      "partition": 0,
+      "startOffset": 100
+    },
+    {
+      "partition": 1,
+      "startOffset": 15
+    }
+  ]
 }

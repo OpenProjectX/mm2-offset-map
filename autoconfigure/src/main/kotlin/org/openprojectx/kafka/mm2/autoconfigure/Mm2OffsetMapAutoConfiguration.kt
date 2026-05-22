@@ -19,8 +19,11 @@ class Mm2OffsetMapAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun offsetMapService(repository: KafkaOffsetSyncRepository): OffsetMapService =
-        OffsetMapService(repository)
+    fun offsetMapService(
+        repository: KafkaOffsetSyncRepository,
+        properties: Mm2OffsetMapProperties,
+    ): OffsetMapService =
+        OffsetMapService(repository, properties)
 
     @Bean
     @ConditionalOnMissingBean
