@@ -5,7 +5,14 @@ plugins {
     signing
     id("io.github.gradle-nexus.publish-plugin") version "2.0.0" // nexus publish/close/release
     id("net.researchgate.release") version "3.1.0"
+    id("org.openprojectx.gradle.mirror") version "0.1.0" apply false
+}
 
+val isCi = gradle.extra["isCi"] as Boolean
+
+if (!isCi) {
+    logger.info("using mirror for local dev")
+    apply(plugin = "org.openprojectx.gradle.mirror")
 }
 
 allprojects {
@@ -19,6 +26,8 @@ subprojects {
     // Apply to every module (safe even if a module doesn't publish)
     apply(plugin = "maven-publish")
     apply(plugin = "signing")
+//    apply(plugin = "org.openprojectx.gradle.mirror")
+
 
     // Configure publishing only when the project has a Java component (Kotlin/JVM typically applies java too)
     plugins.withId("java") {
@@ -104,11 +113,7 @@ nexusPublishing {
             nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
             snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
             username.set(System.getenv("OSSRH_USERNAME"))
-            logger.info("using username: ${System.getenv("OSSRH_USERNAME")}")
-
             password.set(System.getenv("OSSRH_PASSWORD"))
-            logger.info("using password: ${System.getenv("OSSRH_PASSWORD")}")
-
         }
     }
 }
