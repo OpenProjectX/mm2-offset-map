@@ -106,11 +106,114 @@ mm2:
     refresh-interval: 30s
     consumer-properties:
       security.protocol: PLAINTEXT
+    target-consumer-properties: {}
+    source-consumer-properties: {}
 ```
 
 `bootstrap-servers` must point to the Kafka cluster that contains the offset-sync topic. With the provided Compose stack that is the target cluster. `source-bootstrap-servers` points to the source cluster and is used by batch APIs to check the source topic partition offset range before attempting translation.
 
-Use `consumer-properties` for Kafka client settings such as SASL, SSL, timeouts, or custom authentication.
+Use `consumer-properties` for Kafka client settings shared by both clusters, such as SASL, SSL, timeouts, or custom authentication. Use `target-consumer-properties` for the target cluster that stores the MM2 offset-sync topic, and `source-consumer-properties` for the source cluster used by batch APIs to validate source topic partition offset ranges. Source and target values override shared values with the same Kafka client property name.
+
+## Docker Usage
+
+Build the runnable application image:
+
+```bash
+docker build -t mm2-offset-map:local .
+```
+
+Run it against Kafka brokers exposed on the host. With the local defaults, the target cluster contains the MM2 offset-sync topic on `localhost:9093`, and the source cluster is on `localhost:9092`:
+
+```bash
+docker run --rm \
+  --network host \
+  -e MM2_OFFSET_MAP_BOOTSTRAP_SERVERS=localhost:9093 \
+  -e MM2_OFFSET_MAP_SOURCE_BOOTSTRAP_SERVERS=localhost:9092 \
+  -e MM2_OFFSET_MAP_OFFSET_SYNCS_TOPIC=mm2-offset-syncs.source.internal \
+  -p 8080:8080 \
+  mm2-offset-map:local
+```
+
+If you run the container on a Docker bridge network instead of `--network host`, use broker hostnames that are reachable from inside the container, for example `target-kafka:29092` and `source-kafka:29092`.
+
+### Docker Kafka Authentication
+
+Kafka client properties can be passed through environment variables. Use `MM2_OFFSET_MAP_CONSUMER_PROPERTIES_*` for shared defaults, `MM2_OFFSET_MAP_TARGET_CONSUMER_PROPERTIES_*` for the target cluster, and `MM2_OFFSET_MAP_SOURCE_CONSUMER_PROPERTIES_*` for the source cluster. For Kafka properties that contain dots, such as `sasl.jaas.config`, `SPRING_APPLICATION_JSON` is the most reliable Docker-friendly format.
+
+Different source and target SASL/SCRAM credentials:
+
+```bash
+docker run --rm --network host \
+  -e 'SPRING_APPLICATION_JSON={
+    "mm2": {
+      "offset-map": {
+        "bootstrap-servers": "target.example.com:9093",
+        "source-bootstrap-servers": "source.example.com:9093",
+        "target-consumer-properties": {
+          "security.protocol": "SASL_SSL",
+          "sasl.mechanism": "SCRAM-SHA-512",
+          "sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"target-user\" password=\"target-pass\";"
+        },
+        "source-consumer-properties": {
+          "security.protocol": "SASL_SSL",
+          "sasl.mechanism": "SCRAM-SHA-512",
+          "sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"source-user\" password=\"source-pass\";"
+        }
+      }
+    }
+  }' \
+  -p 8080:8080 \
+  mm2-offset-map:local
+```
+
+Kerberos requires mounting `krb5.conf` and keytabs into the container, setting JVM Kerberos config, and passing Kafka SASL properties. Source and target can use different principals and keytabs:
+
+```bash
+docker run --rm --network host \
+  -v /secure/krb5.conf:/etc/krb5.conf:ro \
+  -v /secure/source.keytab:/app/secrets/source.keytab:ro \
+  -v /secure/target.keytab:/app/secrets/target.keytab:ro \
+  -e JAVA_TOOL_OPTIONS='-Djava.security.krb5.conf=/etc/krb5.conf' \
+  -e 'SPRING_APPLICATION_JSON={
+    "mm2": {
+      "offset-map": {
+        "bootstrap-servers": "target.example.com:9093",
+        "source-bootstrap-servers": "source.example.com:9093",
+        "target-consumer-properties": {
+          "security.protocol": "SASL_SSL",
+          "sasl.mechanism": "GSSAPI",
+          "sasl.kerberos.service.name": "kafka",
+          "sasl.jaas.config": "com.sun.security.auth.module.Krb5LoginModule required useKeyTab=true storeKey=true keyTab=\"/app/secrets/target.keytab\" principal=\"target-client@EXAMPLE.COM\";"
+        },
+        "source-consumer-properties": {
+          "security.protocol": "SASL_SSL",
+          "sasl.mechanism": "GSSAPI",
+          "sasl.kerberos.service.name": "kafka",
+          "sasl.jaas.config": "com.sun.security.auth.module.Krb5LoginModule required useKeyTab=true storeKey=true keyTab=\"/app/secrets/source.keytab\" principal=\"source-client@EXAMPLE.COM\";"
+        }
+      }
+    }
+  }' \
+  -p 8080:8080 \
+  mm2-offset-map:local
+```
+
+If the brokers also require TLS trust material, mount the truststore and add the relevant `SSL_TRUSTSTORE_*` Kafka properties to the source, target, or shared property group.
+
+Check the service:
+
+```bash
+curl http://localhost:8080/api/v1/offsets/status
+curl -X POST http://localhost:8080/api/v1/offsets/refresh
+```
+
+The image also contains a compressed copy of the project source at:
+
+```text
+/app/source/mm2-offset-map-source.tar.gz
+```
+
+That archive is created from the Docker build context after `.dockerignore` filtering, so ignored local build outputs, IDE files, Gradle cache files, and Git metadata are excluded.
 
 ## REST API
 

@@ -39,7 +39,12 @@ class KafkaOffsetSyncRepository(
             return emptyMap()
         }
 
-        KafkaConsumer<ByteArray, ByteArray>(consumerProperties(properties.effectiveSourceBootstrapServers)).use { consumer ->
+        KafkaConsumer<ByteArray, ByteArray>(
+            consumerProperties(
+                bootstrapServers = properties.effectiveSourceBootstrapServers,
+                extraProperties = properties.effectiveSourceConsumerProperties,
+            ),
+        ).use { consumer ->
             val knownPartitions = consumer
                 .partitionsFor(topic)
                 .orEmpty()
@@ -68,7 +73,12 @@ class KafkaOffsetSyncRepository(
     }
 
     private fun readOffsetSyncs(): List<OffsetSync> {
-        KafkaConsumer<ByteArray, ByteArray>(consumerProperties()).use { consumer ->
+        KafkaConsumer<ByteArray, ByteArray>(
+            consumerProperties(
+                bootstrapServers = properties.bootstrapServers,
+                extraProperties = properties.effectiveTargetConsumerProperties,
+            ),
+        ).use { consumer ->
             val partitions = consumer
                 .partitionsFor(properties.offsetSyncsTopic)
                 .map { TopicPartition(it.topic(), it.partition()) }
@@ -94,7 +104,10 @@ class KafkaOffsetSyncRepository(
         }
     }
 
-    private fun consumerProperties(bootstrapServers: String = properties.bootstrapServers): Properties =
+    private fun consumerProperties(
+        bootstrapServers: String,
+        extraProperties: Map<String, String>,
+    ): Properties =
         Properties().apply {
             put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
             put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer::class.java.name)
@@ -102,7 +115,7 @@ class KafkaOffsetSyncRepository(
             put(ConsumerConfig.GROUP_ID_CONFIG, "mm2-offset-map-${System.currentTimeMillis()}")
             put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false")
             put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-            putAll(properties.consumerProperties)
+            putAll(extraProperties)
         }
 }
 

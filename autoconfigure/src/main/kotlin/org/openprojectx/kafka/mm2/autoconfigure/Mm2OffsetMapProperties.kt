@@ -13,7 +13,15 @@ class Mm2OffsetMapProperties {
     var offsetSyncsTopic: String = "mm2-offset-syncs.source.internal"
     var refreshInterval: Duration = Duration.ofSeconds(30)
     var consumerProperties: Map<String, String> = emptyMap()
+    var targetConsumerProperties: Map<String, String> = emptyMap()
+    var sourceConsumerProperties: Map<String, String> = emptyMap()
 
     val effectiveSourceBootstrapServers: String
         get() = sourceBootstrapServers?.takeIf { it.isNotBlank() } ?: bootstrapServers
+
+    val effectiveTargetConsumerProperties: Map<String, String>
+        get() = consumerProperties + targetConsumerProperties
+
+    val effectiveSourceConsumerProperties: Map<String, String>
+        get() = consumerProperties + sourceConsumerProperties
 }
