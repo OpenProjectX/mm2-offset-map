@@ -19,10 +19,10 @@ class OffsetMapService(
         repository.latest().index.translate(topic, partition, offset)
 
     fun translateBatch(request: BatchOffsetTranslationRequest): BatchOffsetTranslationResponse =
-        translateBatchWithIndex(request, repository.current().index)
+        translateBatchWithIndex(request) { repository.current().index }
 
     fun translateBatchLatest(request: BatchOffsetTranslationRequest): BatchOffsetTranslationResponse =
-        translateBatchWithIndex(request, repository.latest().index)
+        translateBatchWithIndex(request) { repository.latest().index }
 
     fun syncs(topic: String?, partition: Int?): List<OffsetSync> =
         repository.current().index.syncs(topic, partition)
@@ -31,32 +31,56 @@ class OffsetMapService(
 
     private fun translateBatchWithIndex(
         request: BatchOffsetTranslationRequest,
-        index: OffsetSyncIndex,
+        indexProvider: () -> OffsetSyncIndex,
     ): BatchOffsetTranslationResponse {
         val startedAt = System.nanoTime()
+        val requestedPartitions = request.offsetList.map { it.partition }.distinct()
+        val sourceOffsetRanges = repository.sourceOffsetRanges(request.topicName, requestedPartitions)
+        val index by lazy(indexProvider)
         val partitionResults = request.offsetList
             .groupBy { it.partition }
             .map { (partition, offsets) ->
                 val translations = offsets.map { offset ->
-                    index.translate(request.topicName, partition, offset.startOffset)
-                        ?.let {
-                            BatchOffsetTranslationResult(
-                                sourceOffset = offset.startOffset,
-                                targetOffset = it.targetOffset,
-                                translationMethod = "OFFSET_SYNC",
-                                errorMessages = null,
-                                success = true,
-                            )
-                        }
-                        ?: BatchOffsetTranslationResult(
+                    val range = sourceOffsetRanges[partition]
+                    if (range == null) {
+                        BatchOffsetTranslationResult(
                             sourceOffset = offset.startOffset,
                             targetOffset = null,
                             translationMethod = "OFFSET_SYNC",
-                            errorMessages = listOf(
-                                "No offset sync found for ${request.topicName}-$partition at source offset ${offset.startOffset}",
-                            ),
+                            errorMessages = "Source topic partition ${request.topicName}-$partition does not exist",
                             success = false,
                         )
+                    } else if (!range.contains(offset.startOffset)) {
+                        BatchOffsetTranslationResult(
+                            sourceOffset = offset.startOffset,
+                            targetOffset = null,
+                            translationMethod = "OFFSET_SYNC",
+                            errorMessages = "Source offset ${offset.startOffset} is out of range for " +
+                                "${request.topicName}-$partition; valid range is " +
+                                "[${range.beginningOffset}, ${range.endOffset})",
+                            success = false,
+                        )
+                    } else {
+                        index.translate(request.topicName, partition, offset.startOffset)
+                            ?.let {
+                                BatchOffsetTranslationResult(
+                                    sourceOffset = offset.startOffset,
+                                    targetOffset = it.targetOffset,
+                                    translationMethod = "OFFSET_SYNC",
+                                    errorMessages = null,
+                                    success = true,
+                                )
+                            }
+                            ?: BatchOffsetTranslationResult(
+                                sourceOffset = offset.startOffset,
+                                targetOffset = null,
+                                translationMethod = "OFFSET_SYNC",
+                                errorMessages =
+                                    "No offset sync found for ${request.topicName}-$partition " +
+                                        "at source offset ${offset.startOffset}",
+                                success = false,
+                            )
+                    }
                 }
 
                 BatchPartitionTranslationResult(

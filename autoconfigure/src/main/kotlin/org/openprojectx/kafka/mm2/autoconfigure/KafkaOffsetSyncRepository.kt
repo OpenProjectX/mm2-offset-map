@@ -34,6 +34,39 @@ class KafkaOffsetSyncRepository(
         )
     }
 
+    fun sourceOffsetRanges(topic: String, partitions: Collection<Int>): Map<Int, SourceOffsetRange> {
+        if (partitions.isEmpty()) {
+            return emptyMap()
+        }
+
+        KafkaConsumer<ByteArray, ByteArray>(consumerProperties(properties.effectiveSourceBootstrapServers)).use { consumer ->
+            val knownPartitions = consumer
+                .partitionsFor(topic)
+                .orEmpty()
+                .map { it.partition() }
+                .toSet()
+            val topicPartitions = partitions
+                .distinct()
+                .filter { it in knownPartitions }
+                .map { TopicPartition(topic, it) }
+
+            if (topicPartitions.isEmpty()) {
+                return emptyMap()
+            }
+
+            consumer.assign(topicPartitions)
+            val beginningOffsets = consumer.beginningOffsets(topicPartitions)
+            val endOffsets = consumer.endOffsets(topicPartitions)
+
+            return topicPartitions.associate { topicPartition ->
+                topicPartition.partition() to SourceOffsetRange(
+                    beginningOffset = beginningOffsets[topicPartition] ?: 0L,
+                    endOffset = endOffsets[topicPartition] ?: 0L,
+                )
+            }
+        }
+    }
+
     private fun readOffsetSyncs(): List<OffsetSync> {
         KafkaConsumer<ByteArray, ByteArray>(consumerProperties()).use { consumer ->
             val partitions = consumer
@@ -61,9 +94,9 @@ class KafkaOffsetSyncRepository(
         }
     }
 
-    private fun consumerProperties(): Properties =
+    private fun consumerProperties(bootstrapServers: String = properties.bootstrapServers): Properties =
         Properties().apply {
-            put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, properties.bootstrapServers)
+            put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
             put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer::class.java.name)
             put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer::class.java.name)
             put(ConsumerConfig.GROUP_ID_CONFIG, "mm2-offset-map-${System.currentTimeMillis()}")
@@ -71,6 +104,13 @@ class KafkaOffsetSyncRepository(
             put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
             putAll(properties.consumerProperties)
         }
+}
+
+data class SourceOffsetRange(
+    val beginningOffset: Long,
+    val endOffset: Long,
+) {
+    fun contains(offset: Long): Boolean = offset >= beginningOffset && offset < endOffset
 }
 
 data class OffsetSyncSnapshot(

@@ -98,12 +98,17 @@ Default app configuration is in `app/src/main/resources/application.yaml`.
 ```yaml
 mm2:
   offset-map:
+    source-cluster: source
+    target-cluster: target
     bootstrap-servers: localhost:9093
+    source-bootstrap-servers: localhost:9092
     offset-syncs-topic: mm2-offset-syncs.source.internal
     refresh-interval: 30s
     consumer-properties:
       security.protocol: PLAINTEXT
 ```
+
+`bootstrap-servers` must point to the Kafka cluster that contains the offset-sync topic. With the provided Compose stack that is the target cluster. `source-bootstrap-servers` points to the source cluster and is used by batch APIs to check the source topic partition offset range before attempting translation.
 
 Use `consumer-properties` for Kafka client settings such as SASL, SSL, timeouts, or custom authentication.
 
@@ -157,7 +162,7 @@ Batch request:
 }
 ```
 
-Batch response groups offsets by partition and includes per-offset success or failure:
+Batch response groups offsets by partition and includes per-offset success or failure. `errorMessages` is a single string when an item fails and `null` when it succeeds. Batch requests check the source topic partition offset range first; offsets outside `[beginningOffset, endOffset)` fail immediately without reading the offset-sync index.
 
 ```json
 {

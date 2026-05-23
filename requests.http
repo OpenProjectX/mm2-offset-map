@@ -45,7 +45,7 @@ Accept: application/json
 {
   "topic": "{{topic}}",
   "partition": 1,
-  "offset": 15
+  "offset": 1644
 }
 
 ### Translate source offsets by batch from cached offset-sync index
@@ -85,7 +85,7 @@ Accept: application/json
     },
     {
       "partition": 0,
-      "startOffset": 100
+      "startOffset": 1644
     },
     {
       "partition": 1,

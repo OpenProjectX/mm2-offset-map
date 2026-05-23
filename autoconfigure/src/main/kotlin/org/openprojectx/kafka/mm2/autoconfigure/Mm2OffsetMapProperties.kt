@@ -4,12 +4,16 @@ import java.time.Duration
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties("mm2.offset-map")
-data class Mm2OffsetMapProperties(
-    val enabled: Boolean = true,
-    val sourceCluster: String = "source",
-    val targetCluster: String = "target",
-    val bootstrapServers: String = "localhost:9093",
-    val offsetSyncsTopic: String = "mm2-offset-syncs.source.internal",
-    val refreshInterval: Duration = Duration.ofSeconds(30),
-    val consumerProperties: Map<String, String> = emptyMap(),
-)
+class Mm2OffsetMapProperties {
+    var enabled: Boolean = true
+    var sourceCluster: String = "source"
+    var targetCluster: String = "target"
+    var bootstrapServers: String = "localhost:9093"
+    var sourceBootstrapServers: String? = null
+    var offsetSyncsTopic: String = "mm2-offset-syncs.source.internal"
+    var refreshInterval: Duration = Duration.ofSeconds(30)
+    var consumerProperties: Map<String, String> = emptyMap()
+
+    val effectiveSourceBootstrapServers: String
+        get() = sourceBootstrapServers?.takeIf { it.isNotBlank() } ?: bootstrapServers
+}

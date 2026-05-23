@@ -123,7 +123,7 @@ data class BatchOffsetTranslationResult(
     val sourceOffset: Long,
     val targetOffset: Long?,
     val translationMethod: String,
-    val errorMessages: List<String>?,
+    val errorMessages: String?,
     val success: Boolean,
 )
 

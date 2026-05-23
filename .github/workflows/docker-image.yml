@@ -20,6 +20,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  DOCKER_METADATA_SHORT_SHA_LENGTH: 8
 
 jobs:
   docker:
@@ -30,6 +31,17 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Read Gradle version
+        id: gradle-version
+        shell: bash
+        run: |
+          version="$(sed -n 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*//p' gradle.properties | head -n 1 | tr -d '[:space:]')"
+          if [[ -z "$version" ]]; then
+            echo "Unable to find version in gradle.properties" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
@@ -49,7 +61,8 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=sha-
+            type=sha,prefix=,format=short
+            type=raw,value=${{ steps.gradle-version.outputs.version }}
 
       - name: Build and publish
         uses: docker/build-push-action@v6

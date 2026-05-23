@@ -13,5 +13,6 @@ mm2:
     source-cluster: source
     target-cluster: target
     bootstrap-servers: localhost:9093
+    source-bootstrap-servers: localhost:9092
     offset-syncs-topic: mm2-offset-syncs.source.internal
     refresh-interval: 30s
