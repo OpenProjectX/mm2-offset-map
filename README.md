@@ -114,6 +114,101 @@ mm2:
 
 Use `consumer-properties` for Kafka client settings shared by both clusters, such as SASL, SSL, timeouts, or custom authentication. Use `target-consumer-properties` for the target cluster that stores the MM2 offset-sync topic, and `source-consumer-properties` for the source cluster used by batch APIs to validate source topic partition offset ranges. Source and target values override shared values with the same Kafka client property name.
 
+### Kafka Authentication Configuration
+
+There are five practical ways to configure Kafka authentication credentials.
+
+1. Application YAML for local development:
+
+```yaml
+mm2:
+  offset-map:
+    bootstrap-servers: target.example.com:9093
+    source-bootstrap-servers: source.example.com:9093
+    target-consumer-properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="target-user" password="target-pass";
+    source-consumer-properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="source-user" password="source-pass";
+```
+
+2. Docker or process environment variables for simple keys:
+
+```bash
+MM2_OFFSET_MAP_BOOTSTRAP_SERVERS=target.example.com:9093
+MM2_OFFSET_MAP_SOURCE_BOOTSTRAP_SERVERS=source.example.com:9093
+MM2_OFFSET_MAP_TARGET_CONSUMER_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+MM2_OFFSET_MAP_TARGET_CONSUMER_PROPERTIES_SASL_MECHANISM=SCRAM-SHA-512
+```
+
+Use this only for simple property names. Kafka keys with dots, especially `sasl.jaas.config`, are safer with `SPRING_APPLICATION_JSON`.
+
+3. `SPRING_APPLICATION_JSON` for Docker or any Spring Boot process:
+
+```bash
+SPRING_APPLICATION_JSON='{
+  "mm2": {
+    "offset-map": {
+      "bootstrap-servers": "target.example.com:9093",
+      "source-bootstrap-servers": "source.example.com:9093",
+      "target-consumer-properties": {
+        "security.protocol": "SASL_SSL",
+        "sasl.mechanism": "SCRAM-SHA-512",
+        "sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"target-user\" password=\"target-pass\";"
+      },
+      "source-consumer-properties": {
+        "security.protocol": "SASL_SSL",
+        "sasl.mechanism": "SCRAM-SHA-512",
+        "sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"source-user\" password=\"source-pass\";"
+      }
+    }
+  }
+}'
+```
+
+4. Helm values for non-sensitive or externally templated deployments:
+
+```yaml
+config:
+  mm2:
+    offset-map:
+      bootstrap-servers: target.example.com:9093
+      source-bootstrap-servers: source.example.com:9093
+      target-consumer-properties:
+        security.protocol: SASL_SSL
+        sasl.mechanism: SCRAM-SHA-512
+      source-consumer-properties:
+        security.protocol: SASL_SSL
+        sasl.mechanism: SCRAM-SHA-512
+```
+
+Do not put plaintext passwords in committed values files.
+
+5. Helm `configSecret` for Kubernetes credentials:
+
+```bash
+kubectl -n mm2-offset-map create secret generic mm2-offset-map-config \
+  --from-literal=SPRING_APPLICATION_JSON='{"mm2":{"offset-map":{"bootstrap-servers":"target.example.com:9093","source-bootstrap-servers":"source.example.com:9093","target-consumer-properties":{"security.protocol":"SASL_SSL","sasl.mechanism":"SCRAM-SHA-512","sasl.jaas.config":"org.apache.kafka.common.security.scram.ScramLoginModule required username=\"target-user\" password=\"target-pass\";"},"source-consumer-properties":{"security.protocol":"SASL_SSL","sasl.mechanism":"SCRAM-SHA-512","sasl.jaas.config":"org.apache.kafka.common.security.scram.ScramLoginModule required username=\"source-user\" password=\"source-pass\";"}}}}'
+```
+
+```yaml
+configSecret:
+  name: mm2-offset-map-config
+  key: SPRING_APPLICATION_JSON
+```
+
+Credential property precedence is:
+
+```text
+target Kafka consumer = consumer-properties + target-consumer-properties
+source Kafka consumer = consumer-properties + source-consumer-properties
+```
+
+So put shared TLS/SASL settings in `consumer-properties`, and put different usernames, passwords, principals, keytabs, or truststores in the source/target-specific maps.
+
 ## Docker Usage
 
 Build the runnable application image:
