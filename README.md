@@ -215,6 +215,43 @@ The image also contains a compressed copy of the project source at:
 
 That archive is created from the Docker build context after `.dockerignore` filtering, so ignored local build outputs, IDE files, Gradle cache files, and Git metadata are excluded.
 
+## Helm Usage
+
+The Helm chart is in `charts/mm2-offset-map`.
+
+Install with default values:
+
+```bash
+helm upgrade --install mm2-offset-map ./charts/mm2-offset-map \
+  --namespace mm2-offset-map \
+  --create-namespace
+```
+
+Set the image and Kafka endpoints:
+
+```bash
+helm upgrade --install mm2-offset-map ./charts/mm2-offset-map \
+  --namespace mm2-offset-map \
+  --set image.repository=ghcr.io/openprojectx/mm2-offset-map \
+  --set image.tag=0.1.0-SNAPSHOT \
+  --set config.mm2.offset-map.bootstrap-servers=target-kafka.kafka.svc.cluster.local:9092 \
+  --set config.mm2.offset-map.source-bootstrap-servers=source-kafka.kafka.svc.cluster.local:9092
+```
+
+Enable Istio and select the gateway:
+
+```yaml
+istio:
+  virtualService:
+    enabled: true
+    hosts:
+      - mm2-offset-map.example.com
+    gateways:
+      - istio-system/public-gateway
+```
+
+Use `configSecret` when Kafka credentials should come from a Kubernetes Secret instead of rendered Helm values. See `charts/mm2-offset-map/README.md` for SASL/Kerberos examples and gateway options.
+
 ## REST API
 
 Translate a source offset:

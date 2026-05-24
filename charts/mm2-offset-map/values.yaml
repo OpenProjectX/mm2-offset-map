@@ -1,0 +1,96 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/openprojectx/mm2-offset-map
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  annotations: {}
+
+config:
+  spring:
+    application:
+      name: mm2-offset-map
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,mappings
+  mm2:
+    offset-map:
+      source-cluster: source
+      target-cluster: target
+      bootstrap-servers: target-kafka:9092
+      source-bootstrap-servers: source-kafka:9092
+      offset-syncs-topic: mm2-offset-syncs.source.internal
+      refresh-interval: 30s
+      consumer-properties:
+        security.protocol: PLAINTEXT
+      target-consumer-properties: {}
+      source-consumer-properties: {}
+
+configSecret:
+  name: ""
+  key: SPRING_APPLICATION_JSON
+
+env: []
+envFrom: []
+
+extraVolumes: []
+extraVolumeMounts: []
+
+resources: {}
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 20
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+istio:
+  virtualService:
+    enabled: false
+    annotations: {}
+    hosts:
+      - mm2-offset-map.example.com
+    gateways:
+      - istio-system/public-gateway
+    match:
+      - uri:
+          prefix: /
+    timeout: 30s

@@ -1,0 +1,12 @@
+MM2 Offset Map has been installed.
+
+Service:
+  {{ include "mm2-offset-map.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+
+{{- if .Values.istio.virtualService.enabled }}
+Istio VirtualService hosts:
+{{ toYaml .Values.istio.virtualService.hosts }}
+
+Istio gateways:
+{{ toYaml .Values.istio.virtualService.gateways }}
+{{- end }}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mm2-offset-map
+description: REST API for translating Kafka MirrorMaker 2 source offsets to target offsets.
+type: application
+version: 0.1.0
+appVersion: "0.1.0-SNAPSHOT"

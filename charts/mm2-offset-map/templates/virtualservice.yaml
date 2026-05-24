@@ -1,0 +1,29 @@
+{{- if .Values.istio.virtualService.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "mm2-offset-map.fullname" . }}
+  labels:
+    {{- include "mm2-offset-map.labels" . | nindent 4 }}
+  {{- with .Values.istio.virtualService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  hosts:
+    {{- toYaml .Values.istio.virtualService.hosts | nindent 4 }}
+  gateways:
+    {{- toYaml .Values.istio.virtualService.gateways | nindent 4 }}
+  http:
+    - name: {{ include "mm2-offset-map.name" . }}
+      match:
+        {{- toYaml .Values.istio.virtualService.match | nindent 8 }}
+      route:
+        - destination:
+            host: {{ include "mm2-offset-map.fullname" . }}
+            port:
+              number: {{ .Values.service.port }}
+      {{- with .Values.istio.virtualService.timeout }}
+      timeout: {{ . }}
+      {{- end }}
+{{- end }}
