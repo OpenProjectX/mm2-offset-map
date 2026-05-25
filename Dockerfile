@@ -16,12 +16,13 @@ FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
-RUN addgroup --system mm2-offset-map && adduser --system --ingroup mm2-offset-map mm2-offset-map
+RUN addgroup --system --gid 10001 mm2-offset-map \
+    && adduser --system --uid 10001 --ingroup mm2-offset-map mm2-offset-map
 
 COPY --from=builder /workspace/app/build/libs/*.jar /app/mm2-offset-map.jar
 COPY --from=builder /tmp/mm2-offset-map-source.tar.gz /app/source/mm2-offset-map-source.tar.gz
 
-USER mm2-offset-map:mm2-offset-map
+USER 10001:10001
 
 EXPOSE 8080
 

@@ -23,6 +23,8 @@ securityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: false
   runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
 
 service:
   type: ClusterIP
@@ -55,6 +57,11 @@ config:
 configSecret:
   name: ""
   key: SPRING_APPLICATION_JSON
+
+applicationYamlSecret:
+  name: ""
+  key: application.yaml
+  mountPath: /app/config/application.yaml
 
 env: []
 envFrom: []

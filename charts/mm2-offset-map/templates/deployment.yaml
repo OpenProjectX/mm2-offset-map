@@ -39,6 +39,10 @@ spec:
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
           env:
+            {{- if .Values.applicationYamlSecret.name }}
+            - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+              value: "file:{{ .Values.applicationYamlSecret.mountPath }}"
+            {{- else }}
             - name: SPRING_APPLICATION_JSON
               {{- if .Values.configSecret.name }}
               valueFrom:
@@ -48,6 +52,7 @@ spec:
               {{- else }}
               value: {{ .Values.config | toJson | quote }}
               {{- end }}
+            {{- end }}
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -65,13 +70,31 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.extraVolumeMounts }}
+          {{- if or .Values.applicationYamlSecret.name .Values.extraVolumeMounts }}
           volumeMounts:
+            {{- if .Values.applicationYamlSecret.name }}
+            - name: application-yaml
+              mountPath: {{ .Values.applicationYamlSecret.mountPath }}
+              subPath: application.yaml
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
-      {{- with .Values.extraVolumes }}
+      {{- if or .Values.applicationYamlSecret.name .Values.extraVolumes }}
       volumes:
+        {{- if .Values.applicationYamlSecret.name }}
+        - name: application-yaml
+          secret:
+            secretName: {{ .Values.applicationYamlSecret.name }}
+            items:
+              - key: {{ .Values.applicationYamlSecret.key }}
+                path: application.yaml
+        {{- end }}
+        {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

@@ -10,6 +10,8 @@ helm upgrade --install mm2-offset-map ./charts/mm2-offset-map \
   --create-namespace
 ```
 
+The chart runs the container as numeric UID/GID `10001` by default. This avoids Kubernetes `runAsNonRoot` validation failures with images that declare a named non-root user.
+
 ## Kafka Configuration
 
 Set `config.mm2.offset-map.bootstrap-servers` to the Kafka cluster that contains the MM2 offset-sync topic. Set `config.mm2.offset-map.source-bootstrap-servers` to the source Kafka cluster used by batch APIs to validate source topic partition offset ranges.
@@ -31,7 +33,7 @@ config:
 
 ## Kafka Credential Options
 
-The chart supports three Kubernetes-friendly ways to configure Kafka credentials.
+The chart supports four Kubernetes-friendly ways to configure Kafka credentials.
 
 1. Plain Helm values:
 
@@ -49,11 +51,77 @@ config:
 
 Use this for non-sensitive settings or values injected by a secure deployment pipeline.
 
-2. `configSecret` with `SPRING_APPLICATION_JSON`:
+2. Mounted Secret containing `application.yaml`:
 
 ```bash
-kubectl -n mm2-offset-map create secret generic mm2-offset-map-config \
-  --from-literal=SPRING_APPLICATION_JSON='{"mm2":{"offset-map":{"bootstrap-servers":"target:9093","source-bootstrap-servers":"source:9093","target-consumer-properties":{"security.protocol":"SASL_SSL","sasl.mechanism":"SCRAM-SHA-512","sasl.jaas.config":"org.apache.kafka.common.security.scram.ScramLoginModule required username=\"target-user\" password=\"target-pass\";"},"source-consumer-properties":{"security.protocol":"SASL_SSL","sasl.mechanism":"SCRAM-SHA-512","sasl.jaas.config":"org.apache.kafka.common.security.scram.ScramLoginModule required username=\"source-user\" password=\"source-pass\";"}}}}'
+kubectl -n kafka create secret generic mm2-offset-map-application-yaml \
+  --from-file=application.yaml=./application.yaml
+```
+
+Example `application.yaml`:
+
+```yaml
+spring:
+  application:
+    name: mm2-offset-map
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,mappings
+
+mm2:
+  offset-map:
+    source-cluster: source
+    target-cluster: target
+    bootstrap-servers: kafka-kafka-standby-0-external:9092
+    source-bootstrap-servers: kafka-kafka-primary-0-external:9092
+    offset-syncs-topic: mm2-offset-syncs.source.internal
+    refresh-interval: 30s
+    target-consumer-properties:
+      security.protocol: SASL_PLAINTEXT
+      sasl.mechanism: PLAIN
+      sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="target-secret";
+    source-consumer-properties:
+      security.protocol: SASL_PLAINTEXT
+      sasl.mechanism: PLAIN
+      sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="source-secret";
+```
+
+Enable the mount in Helm values:
+
+```yaml
+applicationYamlSecret:
+  name: mm2-offset-map-application-yaml
+  key: application.yaml
+  mountPath: /app/config/application.yaml
+```
+
+This is the most readable option for complex Kafka auth because it keeps the same YAML shape as local development and avoids JSON escaping.
+
+3. `configSecret` with `SPRING_APPLICATION_JSON`:
+
+```bash
+kubectl -n kafka create secret generic mm2-offset-map-config \
+  --from-literal=SPRING_APPLICATION_JSON='{
+  "mm2": {
+    "offset-map": {
+      "bootstrap-servers": "kafka-kafka-standby-0-external:9092",
+      "source-bootstrap-servers": "kafka-kafka-primary-0-external:9092",
+      "target-consumer-properties": {
+        "security.protocol": "SASL_PLAINTEXT",
+        "sasl.mechanism": "PLAIN",
+        "sasl.jaas.config": "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"target-secret\";"
+      },
+      "source-consumer-properties": {
+        "security.protocol": "SASL_PLAINTEXT",
+        "sasl.mechanism": "PLAIN",
+        "sasl.jaas.config": "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"source-secret\";"
+      }
+    }
+  }
+}'
 ```
 
 ```yaml
@@ -64,7 +132,19 @@ configSecret:
 
 This is the recommended option for passwords and JAAS strings because Kafka property names keep their dots exactly.
 
-3. Mounted Kubernetes Secrets for files plus `configSecret` or values for Kafka properties:
+When using map properties, do not include the property name inside the value. This is correct:
+
+```json
+"sasl.jaas.config": "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user\" password=\"pass\";"
+```
+
+This is wrong and will fail with `Login module control flag is not available in the JAAS config`:
+
+```json
+"sasl.jaas.config": "sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user\" password=\"pass\";"
+```
+
+4. Mounted Kubernetes Secrets for files plus `applicationYamlSecret`, `configSecret`, or values for Kafka properties:
 
 ```yaml
 env:

@@ -169,6 +169,18 @@ SPRING_APPLICATION_JSON='{
 }'
 ```
 
+When using map properties, do not include the property name inside the value. This is correct:
+
+```json
+"sasl.jaas.config": "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user\" password=\"pass\";"
+```
+
+This is wrong and will fail with `Login module control flag is not available in the JAAS config`:
+
+```json
+"sasl.jaas.config": "sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user\" password=\"pass\";"
+```
+
 4. Helm values for non-sensitive or externally templated deployments:
 
 ```yaml
@@ -187,7 +199,56 @@ config:
 
 Do not put plaintext passwords in committed values files.
 
-5. Helm `configSecret` for Kubernetes credentials:
+5. Helm mounted `application.yaml` Secret for Kubernetes credentials:
+
+```bash
+kubectl -n kafka create secret generic mm2-offset-map-application-yaml \
+  --from-file=application.yaml=./application.yaml
+```
+
+Example `application.yaml`:
+
+```yaml
+spring:
+  application:
+    name: mm2-offset-map
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,mappings
+
+mm2:
+  offset-map:
+    source-cluster: source
+    target-cluster: target
+    bootstrap-servers: kafka-kafka-standby-0-external:9092
+    source-bootstrap-servers: kafka-kafka-primary-0-external:9092
+    offset-syncs-topic: mm2-offset-syncs.source.internal
+    refresh-interval: 30s
+    target-consumer-properties:
+      security.protocol: SASL_PLAINTEXT
+      sasl.mechanism: PLAIN
+      sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="target-secret";
+    source-consumer-properties:
+      security.protocol: SASL_PLAINTEXT
+      sasl.mechanism: PLAIN
+      sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="source-secret";
+```
+
+Helm values:
+
+```yaml
+applicationYamlSecret:
+  name: mm2-offset-map-application-yaml
+  key: application.yaml
+  mountPath: /app/config/application.yaml
+```
+
+This is usually easier to read than JSON and avoids escaping JAAS strings.
+
+6. Helm `configSecret` for Kubernetes credentials:
 
 ```bash
 kubectl -n mm2-offset-map create secret generic mm2-offset-map-config \
